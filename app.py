@@ -46,7 +46,7 @@ SUBMISSIONS_DIR.mkdir(exist_ok=True)
 MATERIALS_DIR.mkdir(exist_ok=True)
 BACKUPS_DIR.mkdir(exist_ok=True)
 
-app = FastAPI(title="PBL Manager V0.4.2")
+app = FastAPI(title="PBL Manager V0.4.3")
 ADMIN_PASSWORD = os.environ.get("PBL_ADMIN_PASSWORD", "pbl123")
 AUTH_SECRET = os.environ.get("PBL_AUTH_SECRET", hashlib.sha256((ADMIN_PASSWORD + "|pbl-v040").encode()).hexdigest())
 
@@ -88,7 +88,8 @@ async def protect_staff(request: Request, call_next):
     if staff and staff.get("role") == "reviewer":
         admin_allowed = (request.method == "GET" and (path in ("/admin/attendance", "/admin/plan") or path.startswith("/admin/attendance/view/")))
         grading_allowed = path.startswith("/group/") and "/progress/" in path
-        if path.startswith("/admin") and not admin_allowed and not grading_allowed:
+        # Luôn cho phép đăng nhập/đăng xuất để reviewer có thể đổi sang tài khoản admin.
+        if path.startswith("/admin") and path not in public_exact and not admin_allowed and not grading_allowed:
             return PlainTextResponse("Tài khoản đồng nghiệp chỉ có quyền xem, theo dõi và cho điểm/nhận xét.", status_code=403)
     return await call_next(request)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -731,7 +732,10 @@ def redirect_with(path: str, *, msg: str | None = None, err: str | None = None):
 
 @app.get("/admin-login", response_class=HTMLResponse, name="admin_login")
 def admin_login_get(request: Request):
-    return render(request, "admin_login.html")
+    response = render(request, "admin_login.html")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 @app.post("/admin-login", name="admin_login_post")
 def admin_login_post(username: str = Form("admin"), password: str = Form(...)):
@@ -752,8 +756,11 @@ def admin_login_post(username: str = Form("admin"), password: str = Form(...)):
 
 @app.get("/admin-logout", name="admin_logout")
 def admin_logout():
-    response = RedirectResponse(url="/admin-login", status_code=303)
-    response.delete_cookie("pbl_staff")
+    # Xóa cookie rõ ràng ở path gốc để có thể đổi từ reviewer sang admin ngay.
+    response = RedirectResponse(url="/admin-login?logged_out=1", status_code=303)
+    response.delete_cookie("pbl_staff", path="/")
+    response.set_cookie("pbl_staff", "", max_age=0, expires=0, path="/", httponly=True, samesite="lax")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
 
 
@@ -787,6 +794,22 @@ def dashboard(request: Request):
     return render(request, "dashboard.html", stats=stats, groups=groups, unassigned=unassigned, all_students=all_students)
 
 
+@app.get("/admin/manage", response_class=HTMLResponse, name="admin_manage")
+def admin_manage(request: Request):
+    with db() as c:
+        trows = c.execute("SELECT * FROM templates ORDER BY project_type").fetchall()
+        template_map = {r["project_type"]: r for r in trows}
+        counts = c.execute("SELECT project_type,COUNT(*) n FROM project_data GROUP BY project_type ORDER BY project_type").fetchall()
+        groups = c.execute("""SELECT g.*,pd.data_code,
+            (SELECT GROUP_CONCAT(s.name, ' • ') FROM group_students gs JOIN students s ON s.id=gs.student_id WHERE gs.group_id=g.id) members,
+            (SELECT COUNT(*) FROM group_students gs WHERE gs.group_id=g.id) member_count
+            FROM groups_tbl g LEFT JOIN project_data pd ON pd.id=g.data_id ORDER BY g.group_code""").fetchall()
+        students = c.execute("""SELECT s.*, (SELECT g.id FROM groups_tbl g JOIN group_students gs ON gs.group_id=g.id WHERE gs.student_id=s.id LIMIT 1) group_id,
+            (SELECT g.group_code FROM groups_tbl g JOIN group_students gs ON gs.group_id=g.id WHERE gs.student_id=s.id LIMIT 1) group_code
+            FROM students s ORDER BY s.stt,s.id""").fetchall()
+        reviewers = c.execute("SELECT id,username,display_name,role,active,created_at FROM staff_users ORDER BY display_name").fetchall()
+    return render(request, "admin_manage.html", template_map=template_map, counts=counts, groups=groups, students=students, reviewers=reviewers)
+
 @app.get("/admin/import", response_class=HTMLResponse, name="admin_import")
 def admin_import_get(request: Request):
     with db() as c:
@@ -806,18 +829,18 @@ async def admin_import_post(kind: str = Form(...), file: UploadFile = File(...),
             if suffix != ".xlsx":
                 raise ValueError("Danh sách sinh viên V0.1 yêu cầu file .xlsx")
             n = import_students(tmp)
-            return redirect_with("/admin/import", msg=f"Đã import {n} sinh viên. Vào trang Phân công để cập nhật tự động theo mã Đề hoặc phân công thủ công.")
+            return redirect_with("/admin/manage", msg=f"Đã import {n} sinh viên. Có thể cập nhật phân công ngay tại mục 2.")
         if kind == "dataset":
             n = import_project_data(tmp)
-            return redirect_with("/admin/import", msg=f"Đã import {n} dòng số liệu cho DA1-DA5.")
+            return redirect_with("/admin/manage", msg=f"Đã import {n} dòng số liệu cho DA1-DA5.")
         if kind == "template":
             if project_type not in PROJECT_INFO or suffix != ".docx":
                 raise ValueError("Template phải là .docx và DA từ 1 đến 5.")
             version = install_template(int(project_type), tmp)
-            return redirect_with("/admin/import", msg=f"Đã cập nhật template DA{project_type}, phiên bản {version}.")
+            return redirect_with("/admin/manage", msg=f"Đã cập nhật template DA{project_type}, phiên bản {version}.")
         raise ValueError("Loại import không hợp lệ")
     except Exception as exc:
-        return redirect_with("/admin/import", err=str(exc))
+        return redirect_with("/admin/manage", err=str(exc))
     finally:
         if tmp.exists():
             tmp.unlink()
@@ -835,8 +858,8 @@ def admin_settings_post(
     try:
         update_settings(instructor_name, start_week, end_week, academic_year_start, academic_year_end, attendance_weight)
     except Exception as exc:
-        return redirect_with("/admin/import", err=str(exc))
-    return redirect_with("/admin/import", msg="Đã lưu thông tin học phần và giảng viên hướng dẫn.")
+        return redirect_with("/admin/manage", err=str(exc))
+    return redirect_with("/admin/manage", msg="Đã lưu thông tin học phần và giảng viên hướng dẫn.")
 
 
 @app.get("/admin/groups", response_class=HTMLResponse, name="admin_groups")
@@ -856,18 +879,18 @@ def admin_groups(request: Request):
 def admin_groups_auto():
     try:
         n=regroup_and_assign()
-        return redirect_with("/admin/groups", msg=f"Đã cập nhật phân công tự động: {n} nhóm/cá nhân theo thứ tự danh sách.")
+        return redirect_with("/admin/manage", msg=f"Đã cập nhật phân công tự động: {n} nhóm/cá nhân theo thứ tự danh sách.")
     except Exception as exc:
-        return redirect_with("/admin/groups", err=str(exc))
+        return redirect_with("/admin/manage", err=str(exc))
 
 
 @app.post("/admin/groups/manual", name="admin_groups_manual")
 def admin_groups_manual(student1_id:int=Form(...), student2_id:int=Form(0), project_type:int=Form(...)):
     try:
         code=create_manual_group(student1_id, student2_id or None, project_type)
-        return redirect_with("/admin/groups", msg=f"Đã tạo/cập nhật phân công thủ công {code}.")
+        return redirect_with("/admin/manage", msg=f"Đã tạo/cập nhật phân công thủ công {code}.")
     except Exception as exc:
-        return redirect_with("/admin/groups", err=str(exc))
+        return redirect_with("/admin/manage", err=str(exc))
 
 
 
@@ -887,7 +910,7 @@ def admin_group_move(student_db_id: int = Form(...), target_group_id: int = Form
                 if count >= 2 and (not old or old["id"] != target_group_id):
                     raise ValueError("Nhóm đích đã có 2 sinh viên.")
                 if old and old["id"] == target_group_id:
-                    return redirect_with("/admin/groups", msg="Sinh viên đã ở nhóm này.")
+                    return redirect_with("/admin/manage", msg="Sinh viên đã ở nhóm này.")
                 if old:
                     c.execute("DELETE FROM group_students WHERE group_id=? AND student_id=?", (old["id"], student_db_id))
                 c.execute("INSERT OR IGNORE INTO group_students(group_id,student_id) VALUES (?,?)", (target_group_id, student_db_id))
@@ -910,9 +933,9 @@ def admin_group_move(student_db_id: int = Form(...), target_group_id: int = Form
                 if nleft == 0:
                     c.execute("DELETE FROM groups_tbl WHERE id=?", (old["id"],))
             ensure_progress_rows(c, target_group_id)
-        return redirect_with("/admin/groups", msg="Đã cập nhật phân công sinh viên/nhóm.")
+        return redirect_with("/admin/manage", msg="Đã cập nhật phân công sinh viên/nhóm.")
     except Exception as exc:
-        return redirect_with("/admin/groups", err=str(exc))
+        return redirect_with("/admin/manage", err=str(exc))
 
 @app.post("/admin/groups/{group_id}/project", name="admin_group_project")
 def admin_group_project(group_id: int, project_type: int = Form(...)):
@@ -926,9 +949,9 @@ def admin_group_project(group_id: int, project_type: int = Form(...)):
             c.execute("UPDATE groups_tbl SET project_type=?, data_id=NULL WHERE id=?", (project_type, group_id))
             c.execute("UPDATE students SET project_type=? WHERE id IN (SELECT student_id FROM group_students WHERE group_id=?)", (project_type, group_id))
             assign_next_unused_data(c, group_id, project_type)
-        return redirect_with("/admin/groups", msg="Đã đổi loại đề và cấp lại bộ số liệu phù hợp.")
+        return redirect_with("/admin/manage", msg="Đã đổi loại đề và cấp lại bộ số liệu phù hợp.")
     except Exception as exc:
-        return redirect_with("/admin/groups", err=str(exc))
+        return redirect_with("/admin/manage", err=str(exc))
 
 
 @app.get("/admin/plan", response_class=HTMLResponse, name="admin_plan")
@@ -1108,9 +1131,9 @@ def attendance_summary_for_students(student_db_ids):
 def admin_groups_random(scope: str = Form("unassigned")):
     try:
         n = random_assign_groups(only_unassigned=(scope != "all"))
-        return redirect_with("/admin/groups", msg=f"Đã phân ngẫu nhiên đề và bộ số liệu cho {n} nhóm.")
+        return redirect_with("/admin/manage", msg=f"Đã phân ngẫu nhiên đề và bộ số liệu cho {n} nhóm.")
     except Exception as exc:
-        return redirect_with("/admin/groups", err=str(exc))
+        return redirect_with("/admin/manage", err=str(exc))
 
 @app.get("/admin/reviewers", response_class=HTMLResponse, name="admin_reviewers")
 def admin_reviewers(request: Request):
@@ -1127,15 +1150,24 @@ def admin_reviewer_add(username: str = Form(...), display_name: str = Form(...),
         with db() as c:
             c.execute("INSERT INTO staff_users(username,display_name,password_hash,role,active,created_at) VALUES (?,?,?,?,1,?)",
                       (username, display_name.strip(), hash_password(password), "reviewer", datetime.now().isoformat(timespec="seconds")))
-        return redirect_with("/admin/reviewers", msg="Đã tạo tài khoản đồng nghiệp.")
+        return redirect_with("/admin/manage", msg="Đã tạo tài khoản đồng nghiệp.")
     except Exception as exc:
-        return redirect_with("/admin/reviewers", err=str(exc))
+        return redirect_with("/admin/manage", err=str(exc))
 
 @app.post("/admin/reviewers/{user_id}/toggle", name="admin_reviewer_toggle")
 def admin_reviewer_toggle(user_id: int):
     with db() as c:
         c.execute("UPDATE staff_users SET active=CASE active WHEN 1 THEN 0 ELSE 1 END WHERE id=?", (user_id,))
-    return redirect_with("/admin/reviewers", msg="Đã cập nhật trạng thái tài khoản.")
+    return redirect_with("/admin/manage", msg="Đã cập nhật trạng thái tài khoản.")
+
+@app.post("/admin/reviewers/{user_id}/delete", name="admin_reviewer_delete")
+def admin_reviewer_delete(user_id: int):
+    with db() as c:
+        row = c.execute("SELECT id,username,display_name FROM staff_users WHERE id=?", (user_id,)).fetchone()
+        if not row:
+            return redirect_with("/admin/manage", err="Không tìm thấy tài khoản đồng nghiệp.")
+        c.execute("DELETE FROM staff_users WHERE id=?", (user_id,))
+    return redirect_with("/admin/manage", msg=f"Đã xóa tài khoản {row['display_name']} ({row['username']}).")
 
 ALLOWED_MATERIAL_EXTS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".zip", ".rar", ".dwg", ".dxf", ".txt"}
 
@@ -1220,7 +1252,7 @@ def admin_backup():
 @app.post("/admin/restore", name="admin_restore")
 async def admin_restore(file: UploadFile = File(...)):
     if Path(file.filename or "").suffix.lower() != ".zip":
-        return redirect_with("/admin/import", err="Bản sao lưu phải là file .zip")
+        return redirect_with("/admin/manage", err="Bản sao lưu phải là file .zip")
     tmpzip = BACKUPS_DIR / f"restore_{datetime.now().strftime('%Y%m%d%H%M%S%f')}.zip"
     tmpdir = BACKUPS_DIR / (tmpzip.stem + "_dir")
     try:
@@ -1246,9 +1278,9 @@ async def admin_restore(file: UploadFile = File(...)):
             src = tmpdir / "data" / f"DA{ptype}_template.docx"
             if src.exists(): shutil.copy2(src, DATA_DIR/src.name)
         init_db()
-        return redirect_with("/admin/import", msg="Đã khôi phục dữ liệu. Phân nhóm, đề, điểm và tài liệu đã được nạp lại.")
+        return redirect_with("/admin/manage", msg="Đã khôi phục dữ liệu. Phân nhóm, đề, điểm và tài liệu đã được nạp lại.")
     except Exception as exc:
-        return redirect_with("/admin/import", err=str(exc))
+        return redirect_with("/admin/manage", err=str(exc))
     finally:
         if tmpzip.exists(): tmpzip.unlink()
         if tmpdir.exists(): shutil.rmtree(tmpdir, ignore_errors=True)

@@ -1,4 +1,4 @@
-# PBL Manager V0.4.2 - Fresh Install
+# PBL Manager V0.4.3 - Unified Admin
 
 Bộ cài hoàn chỉnh để tạo repository GitHub mới và deploy Render từ đầu.
 
@@ -25,3 +25,10 @@ bash run_macos_linux.sh
 ```
 
 Mặc định local nếu chưa đặt biến môi trường: mật khẩu admin là `pbl123`. Khi chạy Render bắt buộc nên đặt `PBL_ADMIN_PASSWORD` riêng.
+
+
+## V0.4.3
+- Gộp Phân công + Cấu hình + Đồng nghiệp thành tab Quản trị.
+- Thêm xóa tài khoản đồng nghiệp.
+- Sửa đăng xuất/đổi tài khoản để reviewer có thể thoát và đăng nhập admin ngay.
+- Header: TS. Bùi Minh Hiển - DUT-V.2.

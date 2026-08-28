@@ -1,15 +1,14 @@
 <!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}PBL Manager V0.4.1{% endblock %}</title><link rel="stylesheet" href="{{ url_for('static', path='app.css') }}"></head>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}PBL Manager{% endblock %}</title><link rel="stylesheet" href="{{ url_for('static', path='app.css') }}"></head>
 <body>
 <header class="topbar no-print">
-  <div class="brand"><span class="brand-mark">PBL</span><div><strong>PBL Manager</strong><small>V0.4.1 • Thiết kế hệ thống cơ khí</small></div></div>
+  <div class="brand"><span class="brand-mark">PBL</span><div><strong>PBL Manager</strong><small>TS. Bùi Minh Hiển - DUT-V.2</small></div></div>
   <nav>
     {% if staff %}<a href="{{url_for('dashboard')}}">Tổng quan</a>{% endif %}
-    {% if staff and staff.role=='admin' %}<a href="{{url_for('admin_groups')}}">Phân công</a>{% endif %}
+    {% if staff and staff.role=='admin' %}<a href="{{url_for('admin_manage')}}">Quản trị</a>{% endif %}
     {% if staff %}<a href="{{url_for('admin_plan')}}">Kế hoạch</a><a href="{{url_for('materials_page')}}">Tài liệu</a><a href="{{url_for('admin_attendance')}}">Điểm danh</a>{% endif %}
-    {% if staff and staff.role=='admin' %}<a href="{{url_for('admin_reviewers')}}">Đồng nghiệp</a><a href="{{url_for('admin_import')}}">Cấu hình</a>{% endif %}
-    <a href="{{url_for('student_lookup')}}">Cổng SV</a>
-    {% if staff %}<a href="{{url_for('admin_logout')}}">Đăng xuất</a>{% endif %}
+        <a href="{{url_for('student_lookup')}}">Cổng SV</a>
+    {% if staff %}<a href="{{url_for('admin_logout')}}">Đăng xuất / đổi tài khoản</a>{% endif %}
   </nav>
 </header>
 <main class="container">
@@ -17,5 +16,5 @@
 {% if request.query_params.get('err') %}<div class="flash-wrap no-print"><div class="flash error">{{request.query_params.get('err')}}</div></div>{% endif %}
 {% block content %}{% endblock %}
 </main>
-<footer class="footer no-print">PBL Manager V0.4.1 • {% if staff %}{{staff.name}} • {{'Quản trị' if staff.role=='admin' else 'Đồng nghiệp/đánh giá'}}{% else %}Cổng sinh viên{% endif %}</footer>
+<footer class="footer no-print">PBL Manager • {% if staff %}{{staff.name}} • {{'Quản trị' if staff.role=='admin' else 'Đồng nghiệp/đánh giá'}}{% else %}Cổng sinh viên{% endif %}</footer>
 </body></html>

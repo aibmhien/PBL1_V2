@@ -1,4 +1,4 @@
-# PBL Manager V0.4.2 - Cài mới GitHub + Render từ đầu
+# PBL Manager V0.4.3 - Cài mới GitHub + Render từ đầu
 
 ## 1. Không dùng GitHub Pages
 PBL Manager là FastAPI/Python, vì vậy GitHub chỉ dùng để lưu mã nguồn. Website thật chạy trên Render.
@@ -9,10 +9,10 @@ Khuyến nghị dùng GitHub Desktop để tránh mất các thư mục con khi 
 1. Cài GitHub Desktop và đăng nhập.
 2. GitHub.com -> New repository -> tên `PBL-Manager` -> Public hoặc Private -> Create repository.
 3. GitHub Desktop -> File -> Clone repository -> chọn repository vừa tạo.
-4. Giải nén gói V0.4.2 này.
+4. Giải nén gói V0.4.3 này.
 5. Copy TOÀN BỘ nội dung bên trong thư mục giải nén vào thư mục repository local.
 6. Trong GitHub Desktop phải thấy thay đổi ở `app.py`, `templates/...`, `static/...`, `demo/...`, `render.yaml`.
-7. Summary: `Initial PBL Manager V0.4.2` -> Commit to main -> Push origin.
+7. Summary: `Initial PBL Manager V0.4.3` -> Commit to main -> Push origin.
 
 ## 3. Kiểm tra GitHub trước khi Render
 Ở trang root repository phải nhìn thấy tối thiểu:
