@@ -1,0 +1,3 @@
+{% extends 'base.html' %}{% block title %}Điểm danh PBL1{% endblock %}{% block content %}
+<section class="lookup-card"><span class="eyebrow">ĐIỂM DANH PBL1</span>{% if session %}<h1>{{session.title}}</h1><p>{{session.session_date}}</p>{% if expired %}<div class="flash error">Phiên điểm danh đã đóng hoặc hết hạn.</div>{% else %}<form method="post"><input class="big-input" name="student_id" placeholder="Nhập MSSV / số thẻ" required autofocus><button class="btn primary wide">Xác nhận có mặt</button></form><p class="hint">Mỗi MSSV chỉ được ghi nhận một lần trong phiên này.</p>{% endif %}{% else %}<h1>QR không hợp lệ</h1>{% endif %}</section>
+{% endblock %}

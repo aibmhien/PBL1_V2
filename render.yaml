@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: pbl-manager-v042
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PBL_ADMIN_PASSWORD
+        sync: false
+      - key: PBL_AUTH_SECRET
+        generateValue: true

@@ -1,0 +1,3 @@
+{% extends 'base.html' %}{% block title %}Chưa phân công • PBL{% endblock %}{% block content %}
+<section class="lookup-card"><span class="eyebrow">CỔNG SINH VIÊN</span><h1>{{s.name}}</h1><p>Sinh viên hiện chưa được phân vào nhóm hoặc chưa được cấp loại đề. Vui lòng liên hệ giảng viên hướng dẫn.</p><a class="btn" href="{{url_for('student_lookup')}}">Tra cứu lại</a></section>
+{% endblock %}

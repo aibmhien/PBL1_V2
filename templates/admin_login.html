@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block title %}Đăng nhập giảng viên • PBL Manager{% endblock %}{% block content %}
+<section class="lookup-card"><span class="eyebrow">GIẢNG VIÊN / ĐỒNG NGHIỆP</span><h1>Đăng nhập hệ thống</h1><p>Tài khoản <b>admin</b> có toàn quyền. Tài khoản đồng nghiệp chỉ được xem, theo dõi và chấm điểm/nhận xét; không thể thay đề, dữ liệu hay cấu hình.</p>
+<form method="post" action="{{url_for('admin_login_post')}}"><input class="big-input" name="username" value="admin" placeholder="Tên đăng nhập" required><input class="big-input" type="password" name="password" placeholder="Mật khẩu" required><button class="btn primary wide">Đăng nhập</button></form>
+<p class="hint">Admin local mặc định: <b>admin / pbl123</b>. Khi đưa lên Internet, đặt biến môi trường <b>PBL_ADMIN_PASSWORD</b>.</p><a class="link" href="{{url_for('student_lookup')}}">Đi đến Cổng sinh viên →</a></section>
+{% endblock %}

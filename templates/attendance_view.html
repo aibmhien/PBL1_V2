@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}{{session.title}} • Điểm danh{% endblock %}{% block content %}
+<section class="page-head"><div><span class="eyebrow">ĐIỂM DANH</span><h1>{{session.title}}</h1><p>{{session.session_date}} • {{'Đang mở' if session.is_open else 'Đã đóng'}}</p></div><a class="btn" href="{{url_for('admin_attendance')}}">← Danh sách phiên</a></section>
+<section class="panel"><div class="table-wrap"><table><thead><tr><th>MSSV</th><th>Sinh viên</th><th>Trạng thái</th><th>Thời gian</th></tr></thead><tbody>{% for r in records %}<tr><td>{{r.code}}</td><td><b>{{r.name}}</b></td><td>{{r.status}}</td><td>{{r.checked_at.replace('T',' ')}}</td></tr>{% else %}<tr><td colspan="4">Chưa có sinh viên điểm danh.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

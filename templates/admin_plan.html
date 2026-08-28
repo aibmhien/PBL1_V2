@@ -1,0 +1,22 @@
+{% extends 'base.html' %}{% block title %}Kế hoạch thực hiện • PBL Manager{% endblock %}
+{% block content %}
+<section class="page-head"><div><span class="eyebrow">KẾ HOẠCH CHUNG</span><h1>Nội dung thực hiện & hạn nộp</h1><p>Mỗi nội dung được cấu hình một lần cho toàn lớp. Khi kích hoạt, tất cả nhóm/cá nhân cùng nhận nội dung đó.</p></div></section>
+<section class="panel"><div class="plan-list">
+{% for x in milestones %}
+<div class="plan-card {% if x.is_active %}active-plan{% endif %}">
+  <div class="plan-index">{{x.position}}</div>
+  <div class="plan-content">
+    <form method="post" action="{{url_for('admin_plan_save',milestone_id=x.id)}}">
+      <div class="form-row"><label class="grow"><span>Nội dung thực hiện</span><input name="title" value="{{x.title}}" required></label><label><span>Bắt đầu</span><input type="datetime-local" name="start_at" value="{{x.start_at}}"></label><label><span>Hạn nộp</span><input type="datetime-local" name="due_at" value="{{x.due_at}}"></label></div>
+      <label><span>Yêu cầu / hướng dẫn</span><textarea name="description" rows="2" placeholder="Nội dung cần thực hiện, sản phẩm cần nộp...">{{x.description}}</textarea></label>
+      <button class="btn">Lưu nội dung & thời gian</button>
+    </form>
+    <div class="plan-actions">
+      {% if x.is_active %}<span class="tag success">ĐANG KÍCH HOẠT CHO TẤT CẢ NHÓM</span><form method="post" action="{{url_for('admin_plan_close',milestone_id=x.id)}}"><button class="btn">Đóng nội dung</button></form>
+      {% else %}<form method="post" action="{{url_for('admin_plan_activate',milestone_id=x.id)}}" onsubmit="return confirm('Kích hoạt nội dung này cho tất cả nhóm/cá nhân?');"><button class="btn primary">Kích hoạt cho tất cả nhóm</button></form>{% endif %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+</div></section>
+{% endblock %}
